@@ -10,7 +10,12 @@ import org.littletonrobotics.junction.AutoLog;
 public interface DriveIO {
   @AutoLog
   public static class DriveIOInputs {
-    // Measured drivetrain, gyro, and module state will be added when the drivetrain is built.
+    public double robotXPositionMeters = 0.0;
+    public double robotYPositionMeters = 0.0;
+    public double robotHeadingRadians = 0.0;
+    public double chassisVxMetersPerSec = 0.0;
+    public double chassisVyMetersPerSec = 0.0;
+    public double chassisOmegaRadiansPerSec = 0.0;
   }
 
   public default void updateInputs(DriveIOInputs inputs) {}

@@ -9,9 +9,12 @@ import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOReal;
 import frc.robot.subsystems.drive.DriveIOSim;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -43,6 +46,13 @@ public class RobotContainer {
    * joysticks}.
    */
   private void configureBindings() {
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      // Temporary SIM-only demo drive. Remove when real driver controls are added.
+      new Trigger(DriverStation::isTeleopEnabled)
+          .whileTrue(
+              m_drive.runEnd(
+                  () -> m_drive.drive(new ChassisSpeeds(1.0, 0.0, 0.0)), m_drive::stop));
+    }
   }
 
   /**
