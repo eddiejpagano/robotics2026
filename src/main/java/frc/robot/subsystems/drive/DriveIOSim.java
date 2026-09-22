@@ -50,6 +50,12 @@ public class DriveIOSim implements DriveIO {
   }
 
   @Override
+  public void resetPose(Pose2d pose) {
+    driveSimulation.setSimulationWorldPose(pose);
+    driveSimulation.resetOdometry(pose);
+  }
+
+  @Override
   public void stop() {
     drive(new ChassisSpeeds());
   }

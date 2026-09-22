@@ -4,6 +4,7 @@
 
 package frc.robot.subsystems.drive;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import org.littletonrobotics.junction.AutoLog;
 
@@ -21,6 +22,8 @@ public interface DriveIO {
   public default void updateInputs(DriveIOInputs inputs) {}
 
   public default void drive(ChassisSpeeds speeds) {}
+
+  public default void resetPose(Pose2d pose) {}
 
   public default void stop() {}
 }

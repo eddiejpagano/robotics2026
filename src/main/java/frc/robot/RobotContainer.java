@@ -9,12 +9,13 @@ import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOReal;
 import frc.robot.subsystems.drive.DriveIOSim;
+import frc.robot.subsystems.drive.DrivePathPlanner;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -23,6 +24,10 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * subsystems, commands, and trigger mappings) should be declared here.
  */
 public class RobotContainer {
+  private static final double kDriveDeadband = 0.1;
+  private static final double kMaxDemoTranslationSpeedMetersPerSec = 3.0;
+  private static final double kMaxDemoAngularSpeedRadiansPerSec = 3.0;
+
   // The robot's subsystems and commands are defined here...
   private final Drive m_drive = new Drive(createDriveIO());
 
@@ -32,6 +37,8 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    DrivePathPlanner.configureAutoBuilder(m_drive);
+
     // Configure the trigger bindings
     configureBindings();
   }
@@ -47,11 +54,27 @@ public class RobotContainer {
    */
   private void configureBindings() {
     if (Constants.currentMode == Constants.Mode.SIM) {
-      // Temporary SIM-only demo drive. Remove when real driver controls are added.
-      new Trigger(DriverStation::isTeleopEnabled)
-          .whileTrue(
-              m_drive.runEnd(
-                  () -> m_drive.drive(new ChassisSpeeds(1.0, 0.0, 0.0)), m_drive::stop));
+      m_drive.setDefaultCommand(
+          m_drive.run(
+              () -> {
+                double xSpeed =
+                    -MathUtil.applyDeadband(m_driverController.getLeftY(), kDriveDeadband)
+                        * kMaxDemoTranslationSpeedMetersPerSec;
+                double ySpeed =
+                    -MathUtil.applyDeadband(m_driverController.getLeftX(), kDriveDeadband)
+                        * kMaxDemoTranslationSpeedMetersPerSec;
+                double omega = 0.0;
+
+                Logger.recordOutput("Driver/LeftXRaw", m_driverController.getLeftX());
+                Logger.recordOutput("Driver/LeftYRaw", m_driverController.getLeftY());
+                Logger.recordOutput("Driver/RightXRaw", m_driverController.getRightX());
+                Logger.recordOutput("Driver/RightYRaw", m_driverController.getRightY());
+                Logger.recordOutput("Driver/RotationCommand", omega);
+
+                m_drive.drive(
+                    ChassisSpeeds.fromFieldRelativeSpeeds(
+                        xSpeed, ySpeed, omega, m_drive.getHeading()));
+              }));
     }
   }
 

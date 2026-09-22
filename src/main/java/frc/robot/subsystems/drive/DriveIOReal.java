@@ -4,11 +4,15 @@
 
 package frc.robot.subsystems.drive;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 public class DriveIOReal implements DriveIO {
   @Override
   public void drive(ChassisSpeeds speeds) {}
+
+  @Override
+  public void resetPose(Pose2d pose) {}
 
   @Override
   public void stop() {}
