@@ -61,30 +61,25 @@ public class RobotContainer {
    */
   private void configureBindings() {
     if (Constants.currentMode == Constants.Mode.SIM) {
+      SimControllerMapping simControllerMapping = SimControllerMapping.select();
+      Logger.recordOutput("Driver/ControllerProfile", simControllerMapping.getProfileName());
+
       m_drive.setDefaultCommand(
           m_drive.run(
               () -> {
+                var controller = m_driverController.getHID();
                 double xSpeed =
-                    -MathUtil.applyDeadband(m_driverController.getLeftY(), kDriveDeadband)
+                    -MathUtil.applyDeadband(simControllerMapping.getLeftY(controller), kDriveDeadband)
                         * kMaxDemoTranslationSpeedMetersPerSec;
                 double ySpeed =
-                    -MathUtil.applyDeadband(m_driverController.getLeftX(), kDriveDeadband)
+                    -MathUtil.applyDeadband(simControllerMapping.getLeftX(controller), kDriveDeadband)
                         * kMaxDemoTranslationSpeedMetersPerSec;
                 double omega =
                     -MathUtil.applyDeadband(
-                            m_driverController.getHID().getRawAxis(2), kDriveRotationDeadband)
+                            simControllerMapping.getRightX(controller), kDriveRotationDeadband)
                         * kMaxDemoAngularSpeedRadiansPerSec;
 
-                Logger.recordOutput("Driver/LeftXRaw", m_driverController.getLeftX());
-                Logger.recordOutput("Driver/LeftYRaw", m_driverController.getLeftY());
-                Logger.recordOutput("Driver/RightXRaw", m_driverController.getHID().getRawAxis(2));
-                Logger.recordOutput("Driver/RightYRaw", m_driverController.getRightY());
-                Logger.recordOutput("Driver/RawAxis0", m_driverController.getHID().getRawAxis(0));
-                Logger.recordOutput("Driver/RawAxis1", m_driverController.getHID().getRawAxis(1));
-                Logger.recordOutput("Driver/RawAxis2", m_driverController.getHID().getRawAxis(2));
-                Logger.recordOutput("Driver/RawAxis3", m_driverController.getHID().getRawAxis(3));
-                Logger.recordOutput("Driver/RawAxis4", m_driverController.getHID().getRawAxis(4));
-                Logger.recordOutput("Driver/RawAxis5", m_driverController.getHID().getRawAxis(5));
+                simControllerMapping.recordDiagnostics(controller);
                 Logger.recordOutput("Driver/RotationCommand", omega);
 
                 m_drive.drive(
