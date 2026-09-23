@@ -11,6 +11,7 @@ import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOReal;
 import frc.robot.subsystems.drive.DriveIOSim;
 import frc.robot.subsystems.drive.DrivePathPlanner;
+import frc.robot.subsystems.drive.DriveSimulationConstants;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOReal;
@@ -34,8 +35,8 @@ public class RobotContainer {
   private static final double kMaxDemoAngularSpeedRadiansPerSec = 3.0;
 
   // The robot's subsystems and commands are defined here...
-  private final Drive m_drive = new Drive(createDriveIO());
-  private final Vision m_vision = new Vision(createVisionIO());
+  private final Drive m_drive = new Drive(createDriveIO(), getInitialDrivePose());
+  private final Vision m_vision = new Vision(createVisionIO(), m_drive::addVisionMeasurement);
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
   private final CommandXboxController m_driverController =
@@ -116,12 +117,19 @@ public class RobotContainer {
     }
   }
 
+  private static edu.wpi.first.math.geometry.Pose2d getInitialDrivePose() {
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      return DriveSimulationConstants.SIM_START_POSE;
+    }
+    return new edu.wpi.first.math.geometry.Pose2d();
+  }
+
   private VisionIO createVisionIO() {
     switch (Constants.currentMode) {
       case REAL:
         return new VisionIOReal();
       case SIM:
-        return new VisionIOSim(m_drive::getPose);
+        return new VisionIOSim(m_drive::getSimulationGroundTruthPose);
       case REPLAY:
         return new VisionIO() {};
       default:
