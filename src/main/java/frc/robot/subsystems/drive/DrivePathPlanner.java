@@ -77,7 +77,7 @@ public final class DrivePathPlanner {
     }
   }
 
-  private static RobotConfig createRobotConfig() {
+  public static RobotConfig createRobotConfig() {
     return new RobotConfig(
         DriveSimulationConstants.ROBOT_MASS,
         estimateMomentOfInertia(),
