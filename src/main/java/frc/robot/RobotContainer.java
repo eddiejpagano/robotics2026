@@ -11,6 +11,10 @@ import frc.robot.subsystems.drive.DriveIO;
 import frc.robot.subsystems.drive.DriveIOReal;
 import frc.robot.subsystems.drive.DriveIOSim;
 import frc.robot.subsystems.drive.DrivePathPlanner;
+import frc.robot.subsystems.vision.Vision;
+import frc.robot.subsystems.vision.VisionIO;
+import frc.robot.subsystems.vision.VisionIOReal;
+import frc.robot.subsystems.vision.VisionIOSim;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -25,11 +29,13 @@ import org.littletonrobotics.junction.Logger;
  */
 public class RobotContainer {
   private static final double kDriveDeadband = 0.1;
+  private static final double kDriveRotationDeadband = 0.2;
   private static final double kMaxDemoTranslationSpeedMetersPerSec = 3.0;
   private static final double kMaxDemoAngularSpeedRadiansPerSec = 3.0;
 
   // The robot's subsystems and commands are defined here...
   private final Drive m_drive = new Drive(createDriveIO());
+  private final Vision m_vision = new Vision(createVisionIO());
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
   private final CommandXboxController m_driverController =
@@ -63,12 +69,21 @@ public class RobotContainer {
                 double ySpeed =
                     -MathUtil.applyDeadband(m_driverController.getLeftX(), kDriveDeadband)
                         * kMaxDemoTranslationSpeedMetersPerSec;
-                double omega = 0.0;
+                double omega =
+                    -MathUtil.applyDeadband(
+                            m_driverController.getHID().getRawAxis(2), kDriveRotationDeadband)
+                        * kMaxDemoAngularSpeedRadiansPerSec;
 
                 Logger.recordOutput("Driver/LeftXRaw", m_driverController.getLeftX());
                 Logger.recordOutput("Driver/LeftYRaw", m_driverController.getLeftY());
-                Logger.recordOutput("Driver/RightXRaw", m_driverController.getRightX());
+                Logger.recordOutput("Driver/RightXRaw", m_driverController.getHID().getRawAxis(2));
                 Logger.recordOutput("Driver/RightYRaw", m_driverController.getRightY());
+                Logger.recordOutput("Driver/RawAxis0", m_driverController.getHID().getRawAxis(0));
+                Logger.recordOutput("Driver/RawAxis1", m_driverController.getHID().getRawAxis(1));
+                Logger.recordOutput("Driver/RawAxis2", m_driverController.getHID().getRawAxis(2));
+                Logger.recordOutput("Driver/RawAxis3", m_driverController.getHID().getRawAxis(3));
+                Logger.recordOutput("Driver/RawAxis4", m_driverController.getHID().getRawAxis(4));
+                Logger.recordOutput("Driver/RawAxis5", m_driverController.getHID().getRawAxis(5));
                 Logger.recordOutput("Driver/RotationCommand", omega);
 
                 m_drive.drive(
@@ -98,6 +113,19 @@ public class RobotContainer {
         return new DriveIO() {};
       default:
         return new DriveIO() {};
+    }
+  }
+
+  private VisionIO createVisionIO() {
+    switch (Constants.currentMode) {
+      case REAL:
+        return new VisionIOReal();
+      case SIM:
+        return new VisionIOSim(m_drive::getPose);
+      case REPLAY:
+        return new VisionIO() {};
+      default:
+        return new VisionIO() {};
     }
   }
 }

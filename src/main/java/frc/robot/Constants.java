@@ -4,6 +4,9 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -26,5 +29,13 @@ public final class Constants {
 
   public static class OperatorConstants {
     public static final int kDriverControllerPort = 0;
+  }
+
+  public static class VisionConstants {
+    public static final String kFrontCameraName = "frontCamera";
+
+    // Placeholder camera location. Replace with measured robot dimensions later.
+    public static final Transform3d kRobotToFrontCamera =
+        new Transform3d(new Translation3d(0.25, 0.0, 0.5), new Rotation3d());
   }
 }

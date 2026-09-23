@@ -10,6 +10,8 @@ import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.Volts;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Distance;
@@ -25,6 +27,8 @@ public final class DriveSimulationConstants {
   public static final Distance TRACK_LENGTH_X = Inches.of(22.0);
   public static final Distance TRACK_WIDTH_Y = Inches.of(22.0);
   public static final Distance WHEEL_RADIUS = Inches.of(2.0);
+  public static final Pose2d SIM_START_POSE =
+      new Pose2d(1.0, 1.0, Rotation2d.fromDegrees(0.0));
 
   public static final Translation2d[] MODULE_TRANSLATIONS = {
     new Translation2d(TRACK_LENGTH_X.in(Meters) / 2.0, TRACK_WIDTH_Y.in(Meters) / 2.0),

@@ -23,7 +23,8 @@ public class DriveIOSim implements DriveIO {
     SimulatedArena.overrideInstance(arena);
 
     SwerveDriveSimulation swerveDriveSimulation =
-        new SwerveDriveSimulation(createDriveTrainConfig(), new Pose2d());
+        new SwerveDriveSimulation(
+            createDriveTrainConfig(), DriveSimulationConstants.SIM_START_POSE);
     arena.addDriveTrainSimulation(swerveDriveSimulation);
     driveSimulation = new SelfControlledSwerveDriveSimulation(swerveDriveSimulation);
   }
