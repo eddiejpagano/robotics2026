@@ -49,6 +49,15 @@ public class Robot extends LoggedRobot {
     }
 
     Logger.start();
+    CommandScheduler.getInstance()
+        .onCommandInitialize(
+            command -> Logger.recordOutput("Scheduler/LastInitializedCommand", command.getName()));
+    CommandScheduler.getInstance()
+        .onCommandFinish(
+            command -> Logger.recordOutput("Scheduler/LastFinishedCommand", command.getName()));
+    CommandScheduler.getInstance()
+        .onCommandInterrupt(
+            command -> Logger.recordOutput("Scheduler/LastInterruptedCommand", command.getName()));
 
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.
@@ -64,6 +73,9 @@ public class Robot extends LoggedRobot {
    */
   @Override
   public void robotPeriodic() {
+    Logger.recordOutput(
+        "Auto/IsScheduled", m_autonomousCommand != null && m_autonomousCommand.isScheduled());
+
     // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
     // commands, running already-scheduled commands, removing finished or interrupted commands,
     // and running subsystem periodic() methods.  This must be called from the robot's periodic
@@ -82,11 +94,19 @@ public class Robot extends LoggedRobot {
   @Override
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
+    Logger.recordOutput(
+        "Auto/CommandName",
+        m_autonomousCommand != null ? m_autonomousCommand.getName() : "null");
 
     // schedule the autonomous command (example)
     if (m_autonomousCommand != null) {
       m_autonomousCommand.schedule();
+      Logger.recordOutput("Auto/ScheduledAfterScheduleCall", m_autonomousCommand.isScheduled());
+      Logger.recordOutput("Auto/CommandClass", m_autonomousCommand.getClass().getName());
     }
+    Logger.recordOutput(
+        "Auto/ScheduledAtInit",
+        m_autonomousCommand != null && m_autonomousCommand.isScheduled());
   }
 
   /** This function is called periodically during autonomous. */

@@ -1,2 +1,18 @@
-Start: x = 1.0 m, y = 1.0 m, heading = 0°
-End:   x = 4.0 m, y = 1.0 m, heading = 0°
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "StraightTest"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "choreoAuto": false
+}

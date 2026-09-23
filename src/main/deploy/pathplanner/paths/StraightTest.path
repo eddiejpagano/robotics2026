@@ -1,2 +1,46 @@
-Start: x = 1.0 m, y = 1.0 m, heading = 0°
-End:   x = 4.0 m, y = 1.0 m, heading = 0°
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 1.0,
+        "y": 1.0
+      },
+      "nextControl": {
+        "x": 2.2,
+        "y": 1.0
+      }
+    },
+    {
+      "prevControl": {
+        "x": 2.8,
+        "y": 1.0
+      },
+      "anchor": {
+        "x": 4.0,
+        "y": 1.0
+      }
+    }
+  ],
+  "rotationTargets": [],
+  "pointTowardsZones": [],
+  "constraintZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.0,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 180.0,
+    "maxAngularAcceleration": 360.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "idealStartingState": {
+    "velocity": 0.0,
+    "rotation": 0.0
+  },
+  "goalEndState": {
+    "velocity": 0.0,
+    "rotation": 0.0
+  },
+  "reversed": false
+}

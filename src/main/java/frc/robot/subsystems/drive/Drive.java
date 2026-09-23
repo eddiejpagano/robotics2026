@@ -26,6 +26,9 @@ public class Drive extends SubsystemBase {
   }
 
   public void drive(ChassisSpeeds speeds) {
+    Logger.recordOutput("Drive/CommandedVxMetersPerSec", speeds.vxMetersPerSecond);
+    Logger.recordOutput("Drive/CommandedVyMetersPerSec", speeds.vyMetersPerSecond);
+    Logger.recordOutput("Drive/CommandedOmegaRadiansPerSec", speeds.omegaRadiansPerSecond);
     io.drive(speeds);
   }
 

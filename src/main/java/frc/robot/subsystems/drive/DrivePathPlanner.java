@@ -14,14 +14,20 @@ import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.units.measure.MomentOfInertia;
 import edu.wpi.first.wpilibj.DriverStation;
+import org.littletonrobotics.junction.Logger;
 
 public final class DrivePathPlanner {
   private static final double kMaxPathPlannerSpeedMetersPerSec = 3.0;
   private static final double kDriveCurrentLimitAmps = 60.0;
 
   public static void configureAutoBuilder(Drive drive) {
+    logStraightTestDiagnostics();
+
     AutoBuilder.configure(
         drive::getPose,
         drive::resetPose,
@@ -33,6 +39,44 @@ public final class DrivePathPlanner {
         drive);
   }
 
+  public static void logStraightTestDiagnostics() {
+    try {
+      PathPlannerPath path = PathPlannerPath.fromPathFile("StraightTest");
+      RobotConfig robotConfig = createRobotConfig();
+
+      Logger.recordOutput("PathPlanner/WaypointCount", path.getWaypoints().size());
+
+      var pathPoses = path.getPathPoses();
+      Logger.recordOutput(
+          "PathPlanner/StartPose",
+          path.getStartingHolonomicPose()
+              .orElse(pathPoses.isEmpty() ? new Pose2d() : pathPoses.get(0)));
+
+      var trajectory = path.getIdealTrajectory(robotConfig);
+      Logger.recordOutput("PathPlanner/TrajectoryAvailable", trajectory.isPresent());
+
+      if (trajectory.isPresent()) {
+        PathPlannerTrajectory generatedTrajectory = trajectory.get();
+        Logger.recordOutput(
+            "PathPlanner/TrajectoryDurationSeconds",
+            generatedTrajectory.getTotalTimeSeconds());
+        Logger.recordOutput("PathPlanner/StateCount", generatedTrajectory.getStates().size());
+        Logger.recordOutput(
+            "PathPlanner/EndPose", generatedTrajectory.getEndState().pose);
+      } else {
+        if (!pathPoses.isEmpty()) {
+          Logger.recordOutput("PathPlanner/EndPose", pathPoses.get(pathPoses.size() - 1));
+        } else {
+          Logger.recordOutput("PathPlanner/EndPose", new Pose2d());
+        }
+        Logger.recordOutput("PathPlanner/TrajectoryDurationSeconds", 0.0);
+        Logger.recordOutput("PathPlanner/StateCount", 0);
+      }
+    } catch (Exception exception) {
+      Logger.recordOutput("PathPlanner/DiagnosticsError", exception.toString());
+    }
+  }
+
   private static RobotConfig createRobotConfig() {
     return new RobotConfig(
         DriveSimulationConstants.ROBOT_MASS,
@@ -42,6 +86,7 @@ public final class DrivePathPlanner {
             MetersPerSecond.of(kMaxPathPlannerSpeedMetersPerSec),
             DriveSimulationConstants.WHEEL_COEFFICIENT_OF_FRICTION,
             DriveSimulationConstants.DRIVE_MOTOR,
+            DriveSimulationConstants.DRIVE_GEAR_RATIO,
             Amps.of(kDriveCurrentLimitAmps),
             1),
         DriveSimulationConstants.MODULE_TRANSLATIONS);
