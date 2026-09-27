@@ -132,14 +132,11 @@ jobs:
             echo "run_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > "$PACKAGE_DIR/build-info.txt"
 
-          mkdir -p build/ci-artifacts/upload
-          zip -r "build/ci-artifacts/upload/$ARTIFACT_NAME.zip" "$PACKAGE_DIR"
-
           echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
-          echo "artifact_path=build/ci-artifacts/upload/$ARTIFACT_NAME.zip" >> "$GITHUB_OUTPUT"
+          echo "artifact_path=$PACKAGE_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Upload Robot Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.package.outputs.artifact_name }}
           path: ${{ steps.package.outputs.artifact_path }}
@@ -221,7 +218,12 @@ jobs:
           ARTIFACT_NAME: ${{ needs.test.outputs.artifact_name }}
         run: |
           TAG="$ARTIFACT_NAME"
-          ZIP_PATH="release-artifact/$ARTIFACT_NAME.zip"
+          ZIP_PATH="$ARTIFACT_NAME.zip"
+
+          (
+            cd release-artifact
+            zip -r "../$ZIP_PATH" .
+          )
 
           gh release create "$TAG" "$ZIP_PATH" \
             --title "$ARTIFACT_NAME" \
