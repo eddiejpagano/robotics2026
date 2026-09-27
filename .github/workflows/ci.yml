@@ -15,6 +15,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Build Project
+        run: |
+          ./gradlew build
+
       - name: Run Tests
         run: |
           ./gradlew test
+
+      - name: Generate Code Coverage Report
+        run: |
+          ./gradlew jacocoTestReport
+
+      - name: Parse and Display Coverage Numbers
+        run: |
+          COVERAGE=$(grep -A 1 '<counter type="LINE"' build/reports/jacoco/test/jacocoTestReport.xml | tail -n 1 | awk -F'"' '{print $4}')
+          echo "Code Coverage: $COVERAGE%"
+          echo "::notice file=build/reports/jacoco/test/jacocoTestReport.xml::Code Coverage: $COVERAGE%"
