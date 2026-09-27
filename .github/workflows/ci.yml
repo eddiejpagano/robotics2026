@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   test:
@@ -50,7 +50,10 @@ jobs:
           PR_NUMBER=$(gh api "repos/$GITHUB_REPOSITORY/pulls" \
             -f state=open \
             -f head="$GITHUB_REPOSITORY_OWNER:$GITHUB_REF_NAME" \
-            --jq '.[0].number // empty')
+            --jq '.[0].number // empty') || {
+              echo "::warning::Could not look up pull requests with the workflow token. Check repository Actions workflow permissions."
+              exit 0
+            }
 
           if [ -z "$PR_NUMBER" ]; then
             echo "No open pull request found for $GITHUB_REF_NAME."
@@ -62,12 +65,21 @@ jobs:
 
           COMMENT_ID=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\"))) | .id" \
-            | head -n 1)
+            | head -n 1) || {
+              echo "::warning::Could not read pull request comments with the workflow token."
+              exit 0
+            }
 
           if [ -n "$COMMENT_ID" ]; then
             gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" \
-              -f body="$BODY"
+              -f body="$BODY" || {
+                echo "::warning::Could not update the pull request coverage comment."
+                exit 0
+              }
           else
             gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-              -f body="$BODY"
+              -f body="$BODY" || {
+                echo "::warning::Could not create the pull request coverage comment."
+                exit 0
+              }
           fi
