@@ -29,6 +29,61 @@ jobs:
         run: |
           ./gradlew jacocoTestReport
 
+      - name: Parse and Display Coverage Numbers
+        run: |
+          LINE_COUNTER=$(grep -o '<counter type="LINE"[^>]*/>' build/reports/jacoco/test/jacocoTestReport.xml | tail -n 1)
+          MISSED=$(echo "$LINE_COUNTER" | sed -E 's/.*missed="([0-9]+)".*/\1/')
+          COVERED=$(echo "$LINE_COUNTER" | sed -E 's/.*covered="([0-9]+)".*/\1/')
+          COVERAGE=$(awk "BEGIN { total = $MISSED + $COVERED; if (total == 0) print \"0.00\"; else printf \"%.2f\", ($COVERED / total) * 100 }")
+          echo "Code Coverage: $COVERAGE%"
+          echo "COVERAGE=$COVERAGE" >> "$GITHUB_ENV"
+          echo "### Code Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Line coverage: $COVERAGE%" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report Coverage on Pull Request
+        if: github.ref_name != 'main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq 'map(select(.state == "open")) | .[0].number // empty') || {
+              echo "::warning::Could not look up pull requests with the workflow token. Check repository Actions workflow permissions."
+              exit 0
+            }
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open pull request found for $GITHUB_REF_NAME."
+            exit 0
+          fi
+
+          MARKER="<!-- coverage-report -->"
+          printf -v BODY '%s\n### Code Coverage\n\nLine coverage: %s%%' "$MARKER" "$COVERAGE"
+
+          COMMENT_ID=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\"))) | .id" \
+            | head -n 1) || {
+              echo "::warning::Could not read pull request comments with the workflow token."
+              exit 0
+            }
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" \
+              -f body="$BODY" || {
+                echo "::warning::Could not update the pull request coverage comment."
+                exit 0
+              }
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+              -f body="$BODY" || {
+                echo "::warning::Could not create the pull request coverage comment."
+                exit 0
+              }
+          fi
+
       - name: Package Robot Artifact
         id: package
         run: |
@@ -142,60 +197,6 @@ jobs:
           path: ${{ steps.package.outputs.artifact_path }}
           if-no-files-found: error
           retention-days: 90
-
-      - name: Parse and Display Coverage Numbers
-        run: |
-          LINE_COUNTER=$(grep -o '<counter type="LINE"[^>]*/>' build/reports/jacoco/test/jacocoTestReport.xml | tail -n 1)
-          MISSED=$(echo "$LINE_COUNTER" | sed -E 's/.*missed="([0-9]+)".*/\1/')
-          COVERED=$(echo "$LINE_COUNTER" | sed -E 's/.*covered="([0-9]+)".*/\1/')
-          COVERAGE=$(awk "BEGIN { total = $MISSED + $COVERED; if (total == 0) print \"0.00\"; else printf \"%.2f\", ($COVERED / total) * 100 }")
-          echo "Code Coverage: $COVERAGE%"
-          echo "COVERAGE=$COVERAGE" >> "$GITHUB_ENV"
-          echo "### Code Coverage" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Line coverage: $COVERAGE%" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Report Coverage on Pull Request
-        if: github.ref_name != 'main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          PR_NUMBER=$(gh api "repos/$GITHUB_REPOSITORY/pulls" \
-            -f state=open \
-            -f head="$GITHUB_REPOSITORY_OWNER:$GITHUB_REF_NAME" \
-            --jq '.[0].number // empty') || {
-              echo "::warning::Could not look up pull requests with the workflow token. Check repository Actions workflow permissions."
-              exit 0
-            }
-
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No open pull request found for $GITHUB_REF_NAME."
-            exit 0
-          fi
-
-          MARKER="<!-- coverage-report -->"
-          printf -v BODY '%s\n### Code Coverage\n\nLine coverage: %s%%' "$MARKER" "$COVERAGE"
-
-          COMMENT_ID=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\"))) | .id" \
-            | head -n 1) || {
-              echo "::warning::Could not read pull request comments with the workflow token."
-              exit 0
-            }
-
-          if [ -n "$COMMENT_ID" ]; then
-            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" \
-              -f body="$BODY" || {
-                echo "::warning::Could not update the pull request coverage comment."
-                exit 0
-              }
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
-              -f body="$BODY" || {
-                echo "::warning::Could not create the pull request coverage comment."
-                exit 0
-              }
-          fi
 
   release:
     name: Publish Main Release
