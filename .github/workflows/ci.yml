@@ -18,13 +18,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Build Project
+      - name: Build and Tests
         run: |
           ./gradlew build
-
-      - name: Run Tests
-        run: |
-          ./gradlew test
 
       - name: Generate Code Coverage Report
         run: |
