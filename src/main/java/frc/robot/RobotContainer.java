@@ -82,9 +82,7 @@ public class RobotContainer {
                 simControllerMapping.recordDiagnostics(controller);
                 Logger.recordOutput("Driver/RotationCommand", omega);
 
-                m_drive.drive(
-                    ChassisSpeeds.fromFieldRelativeSpeeds(
-                        xSpeed, ySpeed, omega, m_drive.getHeading()));
+                m_drive.drive(new ChassisSpeeds(xSpeed, ySpeed, omega));
               }));
     }
   }
@@ -96,7 +94,7 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     DrivePathPlanner.logStraightTestDiagnostics();
-    return AutoBuilder.buildAuto("StraightTestAuto");
+    return AutoBuilder.buildAuto("cool auto");
   }
 
   private static DriveIO createDriveIO() {
