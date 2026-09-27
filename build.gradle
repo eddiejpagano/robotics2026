@@ -1,6 +1,11 @@
 plugins {
+    id 'jacoco'
     id "java"
     id "edu.wpi.first.GradleRIO" version "2025.3.2"
+}
+
+jacoco {
+    toolVersion = "0.8.10" // Use the latest version
 }
 
 java {
@@ -108,4 +113,18 @@ wpi.java.configureTestTasks(test)
 // Configure string concat to always inline compile
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
+}
+
+
+tasks.test {
+    useJUnitPlatform() // Ensure you're using JUnit 5 if applicable
+    finalizedBy jacocoTestReport // Generate the report after tests
+}
+
+tasks.jacocoTestReport {
+    dependsOn test // Ensure tests run before generating the report
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }

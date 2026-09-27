@@ -1,21 +1,231 @@
 name: CI
 
 on:
-  push:
-  pull_request:
-    branches:
-      - main
+  push: # Trigger on any branch commit, including merges into main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   test:
+    timeout-minutes: 15
     name: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact_name: ${{ steps.package.outputs.artifact_name }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Placeholder test
+      - name: Build and Tests
         run: |
-          echo "Running placeholder tests..."
-          echo "CI passed successfully."
+          ./gradlew build
+
+      - name: Generate Code Coverage Report
+        run: |
+          ./gradlew jacocoTestReport
+
+      - name: Parse and Display Coverage Numbers
+        run: |
+          LINE_COUNTER=$(grep -o '<counter type="LINE"[^>]*/>' build/reports/jacoco/test/jacocoTestReport.xml | tail -n 1)
+          MISSED=$(echo "$LINE_COUNTER" | sed -E 's/.*missed="([0-9]+)".*/\1/')
+          COVERED=$(echo "$LINE_COUNTER" | sed -E 's/.*covered="([0-9]+)".*/\1/')
+          COVERAGE=$(awk "BEGIN { total = $MISSED + $COVERED; if (total == 0) print \"0.00\"; else printf \"%.2f\", ($COVERED / total) * 100 }")
+          echo "Code Coverage: $COVERAGE%"
+          echo "COVERAGE=$COVERAGE" >> "$GITHUB_ENV"
+          echo "### Code Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Line coverage: $COVERAGE%" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report Coverage on Pull Request
+        if: github.ref_name != 'main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq 'map(select(.state == "open")) | .[0].number // empty') || {
+              echo "::warning::Could not look up pull requests with the workflow token. Check repository Actions workflow permissions."
+              exit 0
+            }
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open pull request found for $GITHUB_REF_NAME."
+            exit 0
+          fi
+
+          MARKER="<!-- coverage-report -->"
+          printf -v BODY '%s\n### Code Coverage\n\nLine coverage: %s%%' "$MARKER" "$COVERAGE"
+
+          COMMENT_ID=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\"))) | .id" \
+            | head -n 1) || {
+              echo "::warning::Could not read pull request comments with the workflow token."
+              exit 0
+            }
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" \
+              -f body="$BODY" || {
+                echo "::warning::Could not update the pull request coverage comment."
+                exit 0
+              }
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+              -f body="$BODY" || {
+                echo "::warning::Could not create the pull request coverage comment."
+                exit 0
+              }
+          fi
+
+      - name: Package Robot Artifact
+        id: package
+        run: |
+          SAFE_BRANCH=$(printf '%s' "$GITHUB_REF_NAME" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')
+          SHORT_SHA="${GITHUB_SHA::7}"
+          ARTIFACT_NAME="robotics2026-${SAFE_BRANCH}-${SHORT_SHA}"
+          PACKAGE_DIR="build/ci-artifacts/$ARTIFACT_NAME"
+
+          mkdir -p "$PACKAGE_DIR"
+          cp build/libs/*.jar "$PACKAGE_DIR/"
+
+          if [ -d src/main/deploy ]; then
+            mkdir -p "$PACKAGE_DIR/deploy"
+            cp -R src/main/deploy/. "$PACKAGE_DIR/deploy/"
+          fi
+
+          cat > "$PACKAGE_DIR/deploy-artifact.sh" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if [ "$#" -lt 1 ]; then
+            echo "Usage: ./deploy-artifact.sh <team-number> [roborio-host]"
+            echo "Example: ./deploy-artifact.sh 1234"
+            exit 1
+          fi
+
+          TEAM="$1"
+          ROBORIO="${2:-roborio-${TEAM}-FRC.local}"
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          JAR_PATH="$(find "$SCRIPT_DIR" -maxdepth 1 -name '*.jar' | head -n 1)"
+
+          if [ -z "$JAR_PATH" ]; then
+            echo "No robot JAR found next to this script."
+            exit 1
+          fi
+
+          echo "Deploying $(basename "$JAR_PATH") to $ROBORIO..."
+          ssh "admin@$ROBORIO" "mkdir -p /home/lvuser/deploy"
+          scp "$JAR_PATH" "admin@$ROBORIO:/home/lvuser/FRCUserProgram.jar"
+
+          if [ -d "$SCRIPT_DIR/deploy" ]; then
+            scp -r "$SCRIPT_DIR/deploy/." "admin@$ROBORIO:/home/lvuser/deploy/"
+          fi
+
+          ssh "admin@$ROBORIO" 'sync; if [ -x /usr/local/frc/bin/frcRunRobot.sh ]; then /usr/local/frc/bin/frcRunRobot.sh restart; else /sbin/reboot; fi'
+          echo "Deploy complete."
+          EOF
+
+          cat > "$PACKAGE_DIR/deploy-artifact.ps1" <<'EOF'
+          param(
+              [Parameter(Mandatory = $true)]
+              [string]$TeamNumber,
+
+              [string]$RoboRio = "roborio-$TeamNumber-FRC.local"
+          )
+
+          $ErrorActionPreference = "Stop"
+          $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+          $Jar = Get-ChildItem -Path $ScriptDir -Filter "*.jar" | Select-Object -First 1
+
+          if ($null -eq $Jar) {
+              throw "No robot JAR found next to this script."
+          }
+
+          Write-Host "Deploying $($Jar.Name) to $RoboRio..."
+          ssh "admin@$RoboRio" "mkdir -p /home/lvuser/deploy"
+          scp $Jar.FullName "admin@${RoboRio}:/home/lvuser/FRCUserProgram.jar"
+
+          $DeployDir = Join-Path $ScriptDir "deploy"
+          if (Test-Path $DeployDir) {
+              scp -r "$DeployDir/*" "admin@${RoboRio}:/home/lvuser/deploy/"
+          }
+
+          ssh "admin@$RoboRio" "sync; if [ -x /usr/local/frc/bin/frcRunRobot.sh ]; then /usr/local/frc/bin/frcRunRobot.sh restart; else /sbin/reboot; fi"
+          Write-Host "Deploy complete."
+          EOF
+
+          cat > "$PACKAGE_DIR/README_DEPLOY.txt" <<'EOF'
+          Robot artifact deploy helper
+          ============================
+
+          Disable the robot before deploying.
+
+          macOS, Linux, or Git Bash:
+            ./deploy-artifact.sh <team-number>
+
+          Windows PowerShell:
+            .\deploy-artifact.ps1 -TeamNumber <team-number>
+
+          Both scripts copy the robot JAR to /home/lvuser/FRCUserProgram.jar,
+          copy the deploy folder to /home/lvuser/deploy, then restart robot code
+          or reboot the roboRIO if the restart helper is unavailable.
+          EOF
+
+          chmod +x "$PACKAGE_DIR/deploy-artifact.sh"
+
+          {
+            echo "artifact=$ARTIFACT_NAME"
+            echo "branch=$GITHUB_REF_NAME"
+            echo "commit=$GITHUB_SHA"
+            echo "run_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$PACKAGE_DIR/build-info.txt"
+
+          echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "artifact_path=$PACKAGE_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Robot Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: ${{ steps.package.outputs.artifact_path }}
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    name: Publish Main Release
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Robot Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ needs.test.outputs.artifact_name }}
+          path: release-artifact
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_NAME: ${{ needs.test.outputs.artifact_name }}
+        run: |
+          TAG="$ARTIFACT_NAME"
+          ZIP_PATH="$ARTIFACT_NAME.zip"
+
+          (
+            cd release-artifact
+            zip -r "../$ZIP_PATH" .
+          )
+
+          gh release create "$TAG" "$ZIP_PATH" \
+            --title "$ARTIFACT_NAME" \
+            --notes "Robot build from main at commit $GITHUB_SHA."
