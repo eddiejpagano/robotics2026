@@ -1,9 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main # Trigger after changes are merged into main
+  push: # Trigger on any branch commit, including merges into main
 
 jobs:
   test:
